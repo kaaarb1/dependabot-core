@@ -5,8 +5,6 @@ require "dependabot/file_parsers/base"
 require "dependabot/shared_helpers"
 require "dependabot/errors"
 
-require "rubygems_yaml_load_patch"
-
 module Dependabot
   module FileParsers
     module Ruby
@@ -15,7 +13,7 @@ module Dependabot
         require "dependabot/file_parsers/ruby/bundler/file_preparer"
         require "dependabot/file_parsers/ruby/bundler/gemfile_checker"
 
-        EXPECTED_SOURCES = [
+        SOURCES = [
           NilClass,
           ::Bundler::Source::Rubygems,
           ::Bundler::Source::Git,
@@ -148,12 +146,10 @@ module Dependabot
 
         def source_for(dependency)
           source = dependency.source
+          raise "Bad source: #{source}" unless SOURCES.include?(source.class)
 
-          unless EXPECTED_SOURCES.any? { |s| source.instance_of?(s) }
-            raise "Unexpected Ruby source: #{source}"
-          end
+          return nil if default_rubygems?(source)
 
-          return nil if dependency.source.nil?
           details = { type: source.class.name.split("::").last.downcase }
           if source.is_a?(::Bundler::Source::Git)
             details[:url] = source.uri
@@ -161,6 +157,12 @@ module Dependabot
             details[:ref] = source.ref
           end
           details
+        end
+
+        def default_rubygems?(source)
+          return true if source.nil?
+          return false unless source.is_a?(::Bundler::Source::Rubygems)
+          source.remotes.any? { |r| r.to_s.include?("rubygems.org") }
         end
 
         def dependency_version(dependency_name)

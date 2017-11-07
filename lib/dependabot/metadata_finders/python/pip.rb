@@ -8,6 +8,10 @@ module Dependabot
   module MetadataFinders
     module Python
       class Pip < Dependabot::MetadataFinders::Base
+        def homepage_url
+          pypi_listing.dig("info", "home_page") || super
+        end
+
         private
 
         def look_up_source
@@ -19,9 +23,23 @@ module Dependabot
           ].compact
 
           source_url = potential_source_urls.find { |url| url =~ SOURCE_REGEX }
+          source_url ||= source_from_description
 
           return nil unless source_url
-          source_url.match(SOURCE_REGEX).named_captures
+          captures = source_url.match(SOURCE_REGEX).named_captures
+          Source.new(host: captures.fetch("host"), repo: captures.fetch("repo"))
+        end
+
+        def source_from_description
+          github_urls = []
+          pypi_listing.
+            dig("info", "description").
+            scan(SOURCE_REGEX) { github_urls << Regexp.last_match.to_s }
+
+          github_urls.find do |url|
+            repo = url.match(SOURCE_REGEX).named_captures["repo"]
+            repo.end_with?(dependency.name)
+          end
         end
 
         def pypi_listing

@@ -1,3 +1,59 @@
+## v0.25.4, 07 November 2017
+
+- Add homepage links for Python and JavaScript
+- Remove Rubygems monkeypatch in favour of required rubygems version
+
+## v0.25.3, 31 October 2017
+
+- Require Bundler 1.16.0
+
+## v0.25.2, 30 October 2017
+
+- Link to Ruby dependency homepage if source code can't be found
+- Refactor GitHub specific logic out of PullRequestCreator
+
+## v0.25.1, 28 October 2017
+
+- Add npm require line to FileUpdaters
+
+## v0.25.0, 28 October 2017
+
+- Alpha support for npm
+
+## v0.24.9, 25 October 2017
+
+- Treat Ruby dependencies which explicitly specify the default source the same
+  as ones that do so implicitly during file parsing
+- Pick up files called `release` when looking for changelogs
+
+## v0.24.8, 24 October 2017
+
+- Handle date-like versions in Dockerfile
+
+## v0.24.7, 24 October 2017
+
+- Only update Dockerfile version to pre-release if currently using one
+
+## v0.24.6, 24 October 2017
+
+- Better handling of Python dependencies that specify a minor version
+
+## v0.24.5, 24 October 2017
+
+- Set private repo config properly in Ruby::Bundler::UpdateCheckers
+
+## v0.24.4, 21 October 2017
+
+- Add support for Dockerfiles versions with a suffix (e.g., 2.4.2-slim)
+
+## v0.24.3, 20 October 2017
+
+- Look up Python URLs from PyPI description if necessary
+
+## v0.24.2, 18 October 2017
+
+- Handle absolute paths in Ruby Gemfiles
+
 ## v0.24.1, 17 October 2017
 
 - Add temporary ignore for private npm organisation hosted dependencies in

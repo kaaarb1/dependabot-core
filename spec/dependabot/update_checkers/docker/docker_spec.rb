@@ -66,16 +66,48 @@ RSpec.describe Dependabot::UpdateCheckers::Docker::Docker do
       let(:version) { "17.10" }
       it { is_expected.to be_falsey }
     end
+
+    context "given a non-numeric version" do
+      let(:version) { "artful" }
+      it { is_expected.to be_falsey }
+    end
   end
 
   describe "#latest_version" do
     subject { checker.latest_version }
 
-    it { is_expected.to eq(Gem::Version.new("17.10")) }
+    it { is_expected.to eq("17.10") }
 
     context "when the dependency has a non-numeric version" do
       let(:version) { "artful" }
       it { is_expected.to be_nil }
+
+      context "that starts with a number" do
+        let(:version) { "309403913c7f0848e6616446edec909b55d53571" }
+        it { is_expected.to be_nil }
+      end
+    end
+
+    context "when the dependency has a non-numeric version" do
+      let(:version) { "artful-20170619" }
+      it { is_expected.to eq("artful-20170916") }
+    end
+
+    context "when the dependency's version has a suffix" do
+      let(:dependency_name) { "ruby" }
+      let(:version) { "2.4.0-slim" }
+      let(:registry_tags) { fixture("docker", "registry_tags", "ruby.json") }
+      before do
+        auth_url = "https://auth.docker.io/token?service=registry.docker.io"
+        stub_request(:get, auth_url).
+          and_return(status: 200, body: { token: "token" }.to_json)
+
+        tags_url = "https://registry.hub.docker.com/v2/library/ruby/tags/list"
+        stub_request(:get, tags_url).
+          and_return(status: 200, body: registry_tags)
+      end
+
+      it { is_expected.to eq("2.4.2-slim") }
     end
 
     context "when the dependency has a namespace" do
@@ -91,7 +123,29 @@ RSpec.describe Dependabot::UpdateCheckers::Docker::Docker do
           and_return(status: 200, body: registry_tags)
       end
 
-      it { is_expected.to eq(Gem::Version.new("2.4.2")) }
+      it { is_expected.to eq("2.4.2") }
+    end
+
+    context "when the latest version is a pre-release" do
+      let(:dependency_name) { "python" }
+      let(:version) { "3.5" }
+      let(:registry_tags) { fixture("docker", "registry_tags", "python.json") }
+      before do
+        auth_url = "https://auth.docker.io/token?service=registry.docker.io"
+        stub_request(:get, auth_url).
+          and_return(status: 200, body: { token: "token" }.to_json)
+
+        tags_url = "https://registry.hub.docker.com/v2/library/python/tags/list"
+        stub_request(:get, tags_url).
+          and_return(status: 200, body: registry_tags)
+      end
+
+      it { is_expected.to eq("3.6.3") }
+
+      context "and the current version is a pre-release" do
+        let(:version) { "3.7.0a1" }
+        it { is_expected.to eq("3.7.0a2") }
+      end
     end
 
     context "when the dependency has a private registry" do
@@ -144,7 +198,7 @@ RSpec.describe Dependabot::UpdateCheckers::Docker::Docker do
             and_return(status: 200, body: registry_tags)
         end
 
-        it { is_expected.to eq(Gem::Version.new("17.10")) }
+        it { is_expected.to eq("17.10") }
       end
     end
   end

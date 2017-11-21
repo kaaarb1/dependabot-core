@@ -4,6 +4,7 @@
  *  - directory containing a package.json and a yarn.lock
  *  - dependency name
  *  - new dependency version
+ *  - previous requirements for this dependency
  *
  * Outputs:
  *  - updated package.json and yarn.lock files
@@ -40,10 +41,10 @@ class LightweightAdd extends Add {
   // Add overrides Install's implementation to always return false - meaning
   // that it will always continue to the fetch and install steps. We want to
   // do the opposite - just save the new lockfile and stop there.
-  async bailout(patterns) {
+  async bailout(patterns, workspaceLayout) {
     // This is the only part of the original bailout implementation that
     // matters: saving the new lockfile
-    await this.saveLockfileAndIntegrity(patterns);
+    await this.saveLockfileAndIntegrity(patterns, workspaceLayout);
 
     // Skip over the unnecessary steps - fetching and linking packages, etc.
     return true;
@@ -72,15 +73,61 @@ function recoverVersionComments(oldLockfile, newLockfile) {
     .replace(nodeRegex, match => oldMatch(nodeRegex) || "");
 }
 
-async function updateDependencyFiles(directory, depName, desiredVersion) {
+function devRequirement(requirements) {
+  const groups = requirements.groups;
+  return (
+    groups.indexOf("devDependencies") > -1 &&
+    groups.indexOf("dependencies") == -1
+  );
+}
+
+function optionalRequirement(requirements) {
+  const groups = requirements.groups;
+  return (
+    groups.indexOf("optionalDependencies") > -1 &&
+    groups.indexOf("dependencies") == -1
+  );
+}
+
+async function updateDependencyFiles(
+  directory,
+  depName,
+  desiredVersion,
+  requirements
+) {
+  var update_run_results = {};
+  for (let reqs of requirements) {
+    update_run_results = Object.assign(
+      update_run_results,
+      await updateDependencyFile(directory, depName, desiredVersion, reqs)
+    );
+  }
+  return update_run_results;
+}
+
+async function updateDependencyFile(
+  directory,
+  depName,
+  desiredVersion,
+  requirements
+) {
   const readFile = fileName =>
     fs.readFileSync(path.join(directory, fileName)).toString();
   const originalYarnLock = readFile("yarn.lock");
 
-  const flags = { ignoreScripts: true };
+  const flags = {
+    ignoreScripts: true,
+    ignoreWorkspaceRootCheck: true,
+    ignoreEngines: true,
+    dev: devRequirement(requirements),
+    optional: optionalRequirement(requirements)
+  };
   const reporter = new EventReporter();
   const config = new Config(reporter);
-  await config.init({ cwd: directory, nonInteractive: true });
+  await config.init({
+    cwd: path.join(directory, path.dirname(requirements.file)),
+    nonInteractive: true
+  });
   config.enableLockfileVersions = Boolean(originalYarnLock.match(/^# yarn v/m));
 
   // Find the old dependency pattern from the package.json, so we can construct
@@ -92,18 +139,25 @@ async function updateDependencyFiles(directory, depName, desiredVersion) {
 
   // Just as if we'd run `yarn add package@version`, but using our lightweight
   // implementation of Add that doesn't actually download and install packages
-  const args = [`${depName}@${newPattern}`];
+  const args = [`${depName}@${desiredVersion}`];
   const add = new LightweightAdd(args, flags, config, reporter, lockfile);
 
   // Despite the innocent-sounding name, this actually does all the hard work
   await add.init();
 
+  // Repeat the process to set the right pattern in the lockfile
+  // TODO: REFACTOR ME!
+  const lockfile2 = await Lockfile.fromDirectory(directory, reporter);
+  const args2 = [`${depName}@${newPattern}`];
+  const add2 = new LightweightAdd(args2, flags, config, reporter, lockfile2);
+  await add2.init();
+
   const updatedYarnLock = readFile("yarn.lock");
-  const updatedPackageJson = readFile("package.json");
+  const updatedPackageJson = readFile(requirements.file);
 
   return {
     "yarn.lock": recoverVersionComments(originalYarnLock, updatedYarnLock),
-    "package.json": updatedPackageJson
+    [requirements.file]: updatedPackageJson
   };
 }
 

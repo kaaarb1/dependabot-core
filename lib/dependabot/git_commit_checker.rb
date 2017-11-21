@@ -172,10 +172,7 @@ module Dependabot
 
           MetadataFinders.
             for_package_manager(dependency.package_manager).
-            new(
-              dependency: candidate_dep,
-              github_client: github_client
-            ).
+            new(dependency: candidate_dep, credentials: credentials).
             source_url
         end
     end
@@ -196,13 +193,15 @@ module Dependabot
 
     def listing_tags
       @listing_tags ||= github_client.tags(listing_source_repo, per_page: 100)
+    rescue Octokit::NotFound
+      []
     end
 
     def local_source_url
       @local_source_url ||=
         MetadataFinders.
         for_package_manager(dependency.package_manager).
-        new(dependency: dependency, github_client: github_client).
+        new(dependency: dependency, credentials: credentials).
         source_url
     end
 
@@ -218,11 +217,23 @@ module Dependabot
       return [] unless local_source_url
       return [] unless local_source_hosted_on_github?
       @local_tags ||= github_client.tags(local_source_repo, per_page: 100)
+    rescue Octokit::NotFound
+      []
     end
 
     def github_client
       @github_client ||=
         Octokit::Client.new(access_token: github_access_token)
+    end
+
+    def credentials
+      [
+        {
+          "host" => "github.com",
+          "username" => "x-access-token",
+          "password" => github_access_token
+        }
+      ]
     end
   end
 end

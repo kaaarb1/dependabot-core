@@ -7,16 +7,17 @@ module Dependabot
     require "dependabot/pull_request_creator/github"
 
     attr_reader :watched_repo, :dependency, :files, :base_commit,
-                :github_client, :pr_message_footer
+                :github_client, :pr_message_footer, :target_branch
 
     def initialize(repo:, base_commit:, dependency:, files:, github_client:,
-                   pr_message_footer: nil)
+                   pr_message_footer: nil, target_branch: nil)
       @dependency = dependency
       @watched_repo = repo
       @base_commit = base_commit
       @files = files
       @github_client = github_client
       @pr_message_footer = pr_message_footer
+      @target_branch = target_branch
 
       check_dependency_has_previous_version
     end
@@ -34,6 +35,7 @@ module Dependabot
         repo_name: watched_repo,
         branch_name: new_branch_name,
         base_commit: base_commit,
+        target_branch: target_branch,
         github_client: github_client,
         files: files,
         commit_message: commit_message,
@@ -45,7 +47,7 @@ module Dependabot
     private
 
     def commit_message
-      pr_name + "\n\n" + pr_message
+      "chore(dependencies): " + pr_name + "\n\n" + pr_message
     end
 
     def pr_name
@@ -130,9 +132,11 @@ module Dependabot
         gsub(">=", "gte-").
         gsub("<=", "lte-").
         gsub("~>", "tw-").
-        gsub("=", "eq-").
+        gsub("~=", "tw-").
+        gsub(/==*/, "eq-").
         gsub(">", "gt-").
         gsub("<", "lt-").
+        gsub("*", "star").
         gsub(",", "-and-")
     end
 
@@ -160,7 +164,7 @@ module Dependabot
       @metadata_finder ||=
         MetadataFinders.
         for_package_manager(dependency.package_manager).
-        new(dependency: dependency, github_client: github_client)
+        new(dependency: dependency, credentials: credentials)
     end
 
     def previous_version
@@ -203,6 +207,16 @@ module Dependabot
       gemspec = updated_reqs.find { |r| r[:file].match?(%r{^[^/]*\.gemspec$}) }
       return gemspec[:requirement] if gemspec
       updated_reqs.first[:requirement]
+    end
+
+    def credentials
+      [
+        {
+          "host" => "github.com",
+          "username" => "x-access-token",
+          "password" => github_client.access_token
+        }
+      ]
     end
 
     def library?

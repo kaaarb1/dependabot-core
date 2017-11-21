@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "excon"
-require "python_requirement_line_parser"
+require "python_requirement_parser"
 require "dependabot/update_checkers/base"
 require "dependabot/shared_helpers"
 
@@ -9,6 +9,8 @@ module Dependabot
   module UpdateCheckers
     module Python
       class Pip < Dependabot::UpdateCheckers::Base
+        require_relative "pip/requirements_updater"
+
         def latest_version
           @latest_version ||= fetch_latest_version
         end
@@ -21,16 +23,11 @@ module Dependabot
         end
 
         def updated_requirements
-          return dependency.requirements unless latest_resolvable_version
-
-          dependency.requirements.map do |req|
-            updated_requirement_string = req[:requirement].sub(
-              PythonRequirementLineParser::VERSION,
-              latest_resolvable_version.to_s
-            )
-
-            req.merge(requirement: updated_requirement_string)
-          end
+          RequirementsUpdater.new(
+            requirements: dependency.requirements,
+            latest_version: latest_version&.to_s,
+            latest_resolvable_version: latest_resolvable_version&.to_s
+          ).updated_requirements
         end
 
         private
@@ -44,7 +41,7 @@ module Dependabot
             middlewares: SharedHelpers.excon_middleware
           )
 
-          if Gem::Version.new(dependency.version).prerelease?
+          if wants_prerelease?(dependency)
             Gem::Version.new(JSON.parse(pypi_response.body)["info"]["version"])
           else
             versions = JSON.parse(pypi_response.body).fetch("releases").keys
@@ -60,6 +57,17 @@ module Dependabot
           end
         rescue JSON::ParserError
           nil
+        end
+
+        def wants_prerelease?(dependency)
+          if dependency.version
+            return Gem::Version.new(dependency.version).prerelease?
+          end
+
+          dependency.requirements.any? do |req|
+            reqs = (req.fetch(:requirement) || "").split(",").map(&:strip)
+            reqs.any? { |r| r.split(".").last.match?(/\D/) }
+          end
         end
 
         def dependency_url

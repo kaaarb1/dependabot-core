@@ -6,13 +6,16 @@ module Dependabot
   class PullRequestCreator
     class Github
       attr_reader :repo_name, :branch_name, :base_commit, :github_client,
-                  :files, :pr_description, :pr_name, :commit_message
+                  :files, :pr_description, :pr_name, :commit_message,
+                  :target_branch
 
       def initialize(repo_name:, branch_name:, base_commit:, github_client:,
-                     files:, commit_message:, pr_description:, pr_name:)
+                     files:, commit_message:, pr_description:, pr_name:,
+                     target_branch:)
         @repo_name      = repo_name
         @branch_name    = branch_name
         @base_commit    = base_commit
+        @target_branch  = target_branch
         @github_client  = github_client
         @files          = files
         @commit_message = commit_message
@@ -57,14 +60,7 @@ module Dependabot
 
       def create_tree
         file_trees = files.map do |file|
-          if file.type == "file"
-            {
-              path: file.path.sub(%r{^/}, ""),
-              mode: "100644",
-              type: "blob",
-              content: file.content
-            }
-          elsif file.type == "submodule"
+          if file.type == "submodule"
             {
               path: file.path.sub(%r{^/}, ""),
               mode: "160000",
@@ -72,7 +68,12 @@ module Dependabot
               sha: file.content
             }
           else
-            raise "Unknown file type #{file.type}"
+            {
+              path: file.path.sub(%r{^/}, ""),
+              mode: "100644",
+              type: "blob",
+              content: file.content
+            }
           end
         end
 
@@ -119,7 +120,7 @@ module Dependabot
       def create_pull_request
         github_client.create_pull_request(
           repo_name,
-          default_branch,
+          target_branch || default_branch,
           branch_name,
           pr_name,
           pr_description

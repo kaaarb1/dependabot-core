@@ -23,9 +23,17 @@ RSpec.describe Dependabot::MetadataFinders::Ruby::Bundler do
     )
   end
   subject(:finder) do
-    described_class.new(dependency: dependency, github_client: github_client)
+    described_class.new(dependency: dependency, credentials: credentials)
   end
-  let(:github_client) { Octokit::Client.new(access_token: "token") }
+  let(:credentials) do
+    [
+      {
+        "host" => "github.com",
+        "username" => "x-access-token",
+        "password" => "token"
+      }
+    ]
+  end
   let(:dependency_name) { "business" }
 
   describe "#source_url" do
@@ -144,12 +152,20 @@ RSpec.describe Dependabot::MetadataFinders::Ruby::Bundler do
           expect(WebMock).to have_requested(:get, rubygems_url).once
         end
 
-        context "that contains a .git suffix" do
+        context "that contains a . suffix (not .git)" do
           let(:rubygems_response) do
             fixture("ruby", "rubygems_response_period_github.json")
           end
 
           it { is_expected.to eq("https://github.com/gocardless/business.rb") }
+        end
+
+        context "that contains a # suffix" do
+          let(:rubygems_response) do
+            fixture("ruby", "rubygems_response_hash_github.json")
+          end
+
+          it { is_expected.to eq("https://github.com/gocardless/business") }
         end
       end
 

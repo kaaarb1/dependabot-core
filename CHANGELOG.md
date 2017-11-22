@@ -1,3 +1,12 @@
+## v0.31.0, 22 November 2017
+
+- BREAKING: Split `UpdateCheckers::Base#needs_update?` method into `up_to_date?`
+  and `can_update?` methods
+
+## v0.30.6, 21 November 2017
+
+- Python: More robust setup.py error handling
+
 ## v0.30.5, 21 November 2017
 
 - Python: Further fix for UpdateChecker prerelease handling

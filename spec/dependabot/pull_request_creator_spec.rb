@@ -200,12 +200,15 @@ RSpec.describe Dependabot::PullRequestCreator do
     it "has the right commit message" do
       creator.create
 
+      message = "chore(dependencies): Bump business from 1.4.0 to 1.5.0\n\n"\
+                "Bumps [busines"
+
       expect(WebMock).
         to have_requested(:post, "#{watched_repo_url}/git/commits").
         with(body: {
                parents: ["basecommitsha"],
                tree: "cd8274d15fa3ae2ab983129fb037999f264ba9a7",
-               message: /Bump business from 1.4.0 to 1\.5\.0\n\nBumps \[busines/
+               message: /#{Regexp.escape(message)}/
              })
     end
 
@@ -253,6 +256,39 @@ RSpec.describe Dependabot::PullRequestCreator do
     it "returns details of the created pull request" do
       expect(creator.create.title).to eq("new-feature")
       expect(creator.create.number).to eq(1347)
+    end
+
+    context "with a target branch" do
+      subject(:creator) do
+        Dependabot::PullRequestCreator.new(repo: repo,
+                                           base_commit: base_commit,
+                                           target_branch: "my_branch",
+                                           dependency: dependency,
+                                           files: files,
+                                           github_client: github_client)
+      end
+
+      it "creates a PR with the right details" do
+        creator.create
+
+        expect(WebMock).
+          to have_requested(:post, "#{watched_repo_url}/pulls").
+          with(
+            body: {
+              base: "my_branch",
+              head: "dependabot/bundler/business-1.5.0",
+              title: "Bump business from 1.4.0 to 1.5.0",
+              body: "Bumps [business](https://github.com/gocardless/business) "\
+                    "from 1.4.0 to 1.5.0.\n- [Release notes]"\
+                    "(https://github.com/gocardless/business/releases?after="\
+                    "v1.6.0)\n- [Changelog]"\
+                    "(https://github.com/gocardless/business/blob/master"\
+                    "/CHANGELOG.md)\n- [Commits]"\
+                    "(https://github.com/gocardless/business/"\
+                    "compare/v1.4.0...v1.5.0)"
+            }
+          )
+      end
     end
 
     context "with SHA-1 versions" do
@@ -553,12 +589,14 @@ RSpec.describe Dependabot::PullRequestCreator do
       it "has the right commit message" do
         creator.create
 
+        message = "chore(dependencies): Update business requirement to >= 1"
+
         expect(WebMock).
           to have_requested(:post, "#{watched_repo_url}/git/commits").
           with(body: {
                  parents: ["basecommitsha"],
                  tree: "cd8274d15fa3ae2ab983129fb037999f264ba9a7",
-                 message: /Update business requirement to >= 1/
+                 message: /#{Regexp.escape(message)}/
                })
       end
 
@@ -589,7 +627,8 @@ RSpec.describe Dependabot::PullRequestCreator do
                     "(https://github.com/gocardless/business/releases?after="\
                     "v1.6.0)\n- [Changelog]"\
                     "(https://github.com/gocardless/business/blob/master"\
-                    "/CHANGELOG.md)"
+                    "/CHANGELOG.md)\n- [Commits]"\
+                    "(https://github.com/gocardless/business/commits/v1.5.0)"
             }
           )
       end
@@ -691,7 +730,8 @@ RSpec.describe Dependabot::PullRequestCreator do
                     "(https://github.com/gocardless/business/releases?after="\
                     "v1.6.0)\n- [Changelog]"\
                     "(https://github.com/gocardless/business/blob/master"\
-                    "/CHANGELOG.md)"
+                    "/CHANGELOG.md)\n- [Commits]"\
+                    "(https://github.com/gocardless/business/commits/v1.5.0)"
             }
           )
       end
@@ -808,12 +848,15 @@ RSpec.describe Dependabot::PullRequestCreator do
       it "includes the directory in the commit message" do
         creator.create
 
+        message = "chore(dependencies): Bump business from 1.4.0 to 1.5.0 "\
+                  "in /directory"
+
         expect(WebMock).
           to have_requested(:post, "#{watched_repo_url}/git/commits").
           with(body: {
                  parents: ["basecommitsha"],
                  tree: "cd8274d15fa3ae2ab983129fb037999f264ba9a7",
-                 message: %r{Bump business from 1.4.0 to 1\.5\.0\ in /directory}
+                 message: /#{Regexp.escape(message)}/
                })
       end
 

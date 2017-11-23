@@ -6,7 +6,8 @@ Gem::Specification.new do |spec|
   spec.name         = "dependabot-core"
   spec.version      = Dependabot::VERSION
   spec.summary      = "Automated dependency management"
-  spec.description  = "Core logic for updating a GitHub repos dependencies"
+  spec.description  = "Automated dependency management for Ruby, JavaScript, "\
+                      "Python and PHP"
 
   spec.author       = "Dependabot"
   spec.email        = "support@dependabot.com"
@@ -18,9 +19,9 @@ Gem::Specification.new do |spec|
                           "lib/**/*", "helpers/**/*"]
 
   spec.required_ruby_version = ">= 2.4.0"
-  spec.required_rubygems_version = ">= 2.6.11"
+  spec.required_rubygems_version = ">= 2.6.13"
 
-  spec.add_dependency "bundler", ">= 1.16.0.pre"
+  spec.add_dependency "bundler", "~> 1.16"
   spec.add_dependency "docker_registry2", "~> 1.2"
   spec.add_dependency "excon", "~> 0.55"
   spec.add_dependency "gitlab", "~> 4.1"

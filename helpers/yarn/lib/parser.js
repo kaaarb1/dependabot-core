@@ -9,6 +9,7 @@
  * Extract a list of the packages specified in the package.json, with their
  * currently installed versions (which are in the yarn.lock)
  */
+const path = require("path");
 const { Install } = require("@dependabot/yarn-lib/lib/cli/commands/install");
 const Config = require("@dependabot/yarn-lib/lib/config").default;
 const { NoopReporter } = require("@dependabot/yarn-lib/lib/reporters");
@@ -31,8 +32,16 @@ function isNotPrivate(dep) {
   return re.test(dep.resolved);
 }
 
+function source_file(dep, directory) {
+  if (dep.request.workspaceLoc) {
+    return path.relative(directory, dep.request.workspaceLoc);
+  } else {
+    return "package.json";
+  }
+}
+
 async function parse(directory) {
-  const flags = { ignoreScripts: true };
+  const flags = { ignoreScripts: true, includeWorkspaceDeps: true };
   const reporter = new NoopReporter();
   const lockfile = await Lockfile.fromDirectory(directory, reporter);
 
@@ -43,14 +52,18 @@ async function parse(directory) {
   const { requests, patterns } = await install.fetchRequestFromCwd();
   const deps = requests
     .filter(isNotExotic)
-    .map(request => lockfile.getLocked(request.pattern))
-    .filter(dep => dep)
-    .filter(isNotPrivate);
+    .map(request => ({
+      request: request,
+      resolved: lockfile.getLocked(request.pattern)
+    }))
+    .filter(dep => dep.resolved)
+    .filter(dep => isNotPrivate(dep.resolved));
 
   return deps.map(dep => ({
-    name: dep.name,
-    resolved: dep.resolved,
-    version: semver.clean(dep.version)
+    name: dep.resolved.name,
+    resolved: dep.resolved.resolved,
+    version: semver.clean(dep.resolved.version),
+    source_file: source_file(dep, directory)
   }));
 }
 

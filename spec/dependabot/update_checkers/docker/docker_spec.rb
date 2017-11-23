@@ -54,8 +54,8 @@ RSpec.describe Dependabot::UpdateCheckers::Docker::Docker do
       and_return(status: 200, body: registry_tags)
   end
 
-  describe "#needs_update?" do
-    subject { checker.needs_update? }
+  describe "#can_update?" do
+    subject { checker.can_update? }
 
     context "given an outdated dependency" do
       let(:version) { "17.04" }
@@ -91,6 +91,31 @@ RSpec.describe Dependabot::UpdateCheckers::Docker::Docker do
     context "when the dependency has a non-numeric version" do
       let(:version) { "artful-20170619" }
       it { is_expected.to eq("artful-20170916") }
+    end
+
+    context "when the docker registry times out" do
+      before do
+        tags_url = "https://registry.hub.docker.com/v2/library/ubuntu/tags/list"
+        stub_request(:get, tags_url).
+          to_raise(RestClient::Exceptions::OpenTimeout).then.
+          to_return(status: 200, body: registry_tags)
+      end
+
+      it { is_expected.to eq("17.10") }
+
+      context "every time" do
+        before do
+          tags_url =
+            "https://registry.hub.docker.com/v2/library/ubuntu/tags/list"
+          stub_request(:get, tags_url).
+            to_raise(RestClient::Exceptions::OpenTimeout)
+        end
+
+        it "raises" do
+          expect { checker.latest_version }.
+            to raise_error(RestClient::Exceptions::OpenTimeout)
+        end
+      end
     end
 
     context "when the dependency's version has a suffix" do

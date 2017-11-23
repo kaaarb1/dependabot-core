@@ -1,3 +1,205 @@
+## v0.33.0, 23 November 2017
+
+- BREAKING: FileUpdaters now take an array of `dependencies`, not a `dependency`
+
+## v0.32.0, 23 November 2017
+
+- BREAKING: Return an array of dependencies from
+  `UpdateCheckers::Base#updated_dependencies`
+
+## v0.31.0, 22 November 2017
+
+- BREAKING: Split `UpdateCheckers::Base#needs_update?` method into `up_to_date?`
+  and `can_update?` methods
+
+## v0.30.6, 21 November 2017
+
+- Python: More robust setup.py error handling
+
+## v0.30.5, 21 November 2017
+
+- Python: Further fix for UpdateChecker prerelease handling
+
+## v0.30.4, 21 November 2017
+
+- Python: Better pre-release handling in UpdateChecker
+
+## v0.30.3, 21 November 2017
+
+- Ruby: Ignore path gemspecs that are behind falsey conditional
+
+## v0.30.2, 21 November 2017
+
+- PHP: Silence out-of-memory errors
+
+## v0.30.1, 21 November 2017
+
+- Ruby: Handle GitHub sources when checking for inaccessible dependencies
+
+## v0.30.0, 20 November 2017
+
+- Pass a source hash to FileFetchers, rather than a repo name
+- Pass a credentials hash to FileFetchers, rather than a GitHub client
+
+## v0.29.1, 20 November 2017
+
+- JS: Pass full requirements to Yarn updater.js to circumvent Yarn bug
+
+## v0.29.0, 20 November 2017
+
+- JS: Ignore node manifest engine constraints
+- Make MetadataFinders provider agnostic (i.e., don't treat GitHub differently)
+
+## v0.28.9, 20 November 2017
+
+- Ruby: Respect user's spacing between specifier and version
+
+## v0.28.8, 20 November 2017
+
+- Ruby: Handle Gemfiles with path sources but no Gemfile.lock
+
+## v0.28.7, 17 November 2017
+
+- Start commit messages with "chore(dependencies): "
+
+## v0.28.6, 17 November 2017
+
+- JS: FileUpdaters::JavaScript::Yarn.updated_files_regex now includes
+  package.json files that aren't at the top level
+
+## v0.28.5, 17 November 2017
+
+- JS: Fix Yarn workspace handling in FileUpdater
+
+## v0.28.4, 17 November 2017
+
+- Python: Extract dependencies from `setup_requires` and `extras_require`
+  (thanks @tristan0x)
+
+## v0.28.3, 17 November 2017
+
+- JS: Handle wildcards in package.json
+
+## v0.28.2, 17 November 2017
+
+- JS: Ignore empty files in FileUpdater
+
+## v0.28.1, 17 November 2017
+
+- JS: Handle workspace names more robustly
+
+## v0.28.0, 16 November 2017
+
+- JS: Support Yarn workspaces
+
+## v0.27.17, 16 November 2017
+
+- JS: Fetch and parse workspace package.json files (awaiting FileUpdater change)
+
+## v0.27.16, 15 November 2017
+
+- MetadataFinders: Strip out # characters from source URLs
+
+## v0.27.15, 15 November 2017
+
+- JS: Sanitize any variables in a package.json before parsing/updating
+
+## v0.27.14, 13 November 2017
+
+- Ruby: handle yet more private gem repo failure cases
+
+## v0.27.13, 13 November 2017
+
+- Ruby: handle more private gem repo failure cases
+
+## v0.27.12, 13 November 2017
+
+- Python: Ignore errors when parsing setup.py (temporary)
+
+## v0.27.11, 13 November 2017
+
+- Handle bad GitHub source data links in GitCommitChecker
+- Python: Handle setup.py calls better
+
+## v0.27.10, 12 November 2017
+
+- Case insensitive Ruby version replacement
+
+## v0.27.9, 11 November 2017
+
+- Add support for passing a target branch to create PRs against
+
+## v0.27.8, 11 November 2017
+
+- Python: more setup.py handling
+
+## v0.27.7, 10 November 2017
+
+- Fix typo
+
+## v0.27.6, 10 November 2017
+
+- Handle Python setup.py files that use codec.open
+
+## v0.27.5, 10 November 2017
+
+- Attempt to handle setup.py file that include an "open" line
+
+## v0.27.4, 10 November 2017
+
+- Sanitize Python requirement branch names
+
+## v0.27.3, 10 November 2017
+
+- Handle Python range requirements
+
+## v0.27.2, 10 November 2017
+
+- Handle Python requirements that specify a prefix-match
+
+## v0.27.1, 10 November 2017
+
+- Handle setup.py file that include a print statement
+- Retry Docker timeouts
+
+## v0.27.0, 09 November 2017
+
+- Add support for Python libraries (i.e., repos with a setup.py)
+
+## v0.26.0, 09 November 2017
+
+- Make repo a required argument to FileParsers
+
+## v0.25.8, 09 November 2017
+
+- Ignore custom names for submodule dependencies
+
+## v0.25.7, 09 November 2017
+
+- Handle relative URLs for git submodules
+
+## v0.25.6, 08 November 2017
+
+- Handle missing Ruby private dependencies
+
+## v0.25.5, 08 November 2017
+
+- Allow Rubygems 2.6.13 for now (since Heroku uses it)
+
+## v0.25.4, 07 November 2017
+
+- Add homepage links for Python and JavaScript
+- Remove Rubygems monkeypatch in favour of required rubygems version
+
+## v0.25.3, 31 October 2017
+
+- Require Bundler 1.16.0
+
+## v0.25.2, 30 October 2017
+
+- Link to Ruby dependency homepage if source code can't be found
+- Refactor GitHub specific logic out of PullRequestCreator
+
 ## v0.25.1, 28 October 2017
 
 - Add npm require line to FileUpdaters

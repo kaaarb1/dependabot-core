@@ -9,8 +9,6 @@ require "dependabot/shared_helpers"
 require "dependabot/errors"
 require "dependabot/file_updaters/base"
 
-require "rubygems_yaml_load_patch"
-
 module Dependabot
   module FileUpdaters
     module Ruby
@@ -42,7 +40,7 @@ module Dependabot
               )
           end
 
-          if lockfile && dependency.appears_in_lockfile?
+          if lockfile && dependencies.any?(&:appears_in_lockfile?)
             updated_files <<
               updated_file(file: lockfile, content: updated_lockfile_content)
           end
@@ -100,13 +98,17 @@ module Dependabot
         end
 
         def file_changed?(file)
+          dependencies.any? { |dep| requirement_changed?(file, dep) }
+        end
+
+        def requirement_changed?(file, dependency)
           changed_requirements =
             dependency.requirements - dependency.previous_requirements
 
           changed_requirements.any? { |f| f[:file] == file.name }
         end
 
-        def remove_git_source?
+        def remove_git_source?(dependency)
           old_gemfile_req =
             dependency.previous_requirements.find { |f| f[:file] == "Gemfile" }
           return false unless old_gemfile_req&.dig(:source, :type) == "git"
@@ -117,7 +119,7 @@ module Dependabot
           new_gemfile_req[:source].nil?
         end
 
-        def update_git_pin?
+        def update_git_pin?(dependency)
           new_gemfile_req =
             dependency.requirements.find { |f| f[:file] == "Gemfile" }
           return false unless new_gemfile_req&.dig(:source, :type) == "git"
@@ -128,18 +130,33 @@ module Dependabot
         end
 
         def updated_gemfile_content(file)
-          content = replace_gemfile_version_requirement(file.content)
-          content = remove_gemfile_git_source(content) if remove_git_source?
-          content = update_gemfile_git_pin(content) if update_git_pin?
+          content = file.content
+
+          dependencies.each do |dependency|
+            content = replace_gemfile_version_requirement(dependency, content)
+            if remove_git_source?(dependency)
+              content = remove_gemfile_git_source(dependency, content)
+            end
+            if update_git_pin?(dependency)
+              content = update_gemfile_git_pin(dependency, content)
+            end
+          end
+
           content
         end
 
         def updated_gemspec_content
-          replace_gemspec_version_requirement(gemspec.content)
+          content = gemspec.content
+
+          dependencies.each do |dependency|
+            content = replace_gemspec_version_requirement(dependency, content)
+          end
+
+          content
         end
 
-        def replace_gemfile_version_requirement(content)
-          return content unless file_changed?(gemfile)
+        def replace_gemfile_version_requirement(dependency, content)
+          return content unless requirement_changed?(gemfile, dependency)
 
           updated_requirement =
             dependency.requirements.
@@ -153,11 +170,11 @@ module Dependabot
           ).rewrite(content)
         end
 
-        def remove_gemfile_git_source(content)
+        def remove_gemfile_git_source(dependency, content)
           GitSourceRemover.new(dependency: dependency).rewrite(content)
         end
 
-        def update_gemfile_git_pin(content)
+        def update_gemfile_git_pin(dependency, content)
           new_pin =
             dependency.requirements.
             find { |f| f[:file] == "Gemfile" }.
@@ -168,8 +185,8 @@ module Dependabot
             rewrite(content)
         end
 
-        def replace_gemspec_version_requirement(content)
-          return content unless file_changed?(gemspec)
+        def replace_gemspec_version_requirement(dependency, content)
+          return content unless requirement_changed?(gemspec, dependency)
 
           updated_requirement =
             dependency.requirements.
@@ -208,7 +225,7 @@ module Dependabot
                 definition = ::Bundler::Definition.build(
                   "Gemfile",
                   "Gemfile.lock",
-                  gems: [dependency.name]
+                  gems: dependencies.map(&:name)
                 )
                 definition.resolve_remotely!
                 definition.to_lock
@@ -284,7 +301,7 @@ module Dependabot
 
         def sanitized_gemspec_content(gemspec)
           gemspec_content = gemspec.content.gsub(/^\s*require.*$/, "")
-          gemspec_content.gsub(/=.*VERSION.*$/) do
+          gemspec_content.gsub(/=.*VERSION.*$/i) do
             parsed_lockfile ||= ::Bundler::LockfileParser.new(lockfile.content)
             gem_name = gemspec.name.split("/").last.split(".").first
             spec = parsed_lockfile.specs.find { |s| s.name == gem_name }

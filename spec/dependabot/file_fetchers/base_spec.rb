@@ -5,8 +5,17 @@ require "spec_helper"
 require "dependabot/file_fetchers/ruby/bundler"
 
 RSpec.describe Dependabot::FileFetchers::Base do
+  let(:source) { { host: "github", repo: repo } }
   let(:repo) { "gocardless/bump" }
-  let(:github_client) { Octokit::Client.new(access_token: "token") }
+  let(:credentials) do
+    [
+      {
+        "host" => "github.com",
+        "username" => "x-access-token",
+        "password" => "token"
+      }
+    ]
+  end
 
   let(:child_class) do
     Class.new(described_class) do
@@ -26,7 +35,7 @@ RSpec.describe Dependabot::FileFetchers::Base do
     end
   end
   let(:file_fetcher_instance) do
-    child_class.new(repo: repo, github_client: github_client)
+    child_class.new(source: source, credentials: credentials)
   end
 
   describe "#commit" do
@@ -35,16 +44,38 @@ RSpec.describe Dependabot::FileFetchers::Base do
 
     before do
       stub_request(:get, url).
+        with(headers: { "Authorization" => "token token" }).
         to_return(status: 200,
                   body: fixture("github", "bump_repo.json"),
                   headers: { "content-type" => "application/json" })
       stub_request(:get, url + "/git/refs/heads/master").
+        with(headers: { "Authorization" => "token token" }).
         to_return(status: 200,
                   body: fixture("github", "ref.json"),
                   headers: { "content-type" => "application/json" })
     end
 
     it { is_expected.to eq("aa218f56b14c9653891f9e74264a383fa43fefbd") }
+
+    context "with a target branch" do
+      let(:file_fetcher_instance) do
+        child_class.new(
+          source: source,
+          credentials: credentials,
+          target_branch: "my_branch"
+        )
+      end
+
+      before do
+        stub_request(:get, url + "/git/refs/heads/my_branch").
+          with(headers: { "Authorization" => "token token" }).
+          to_return(status: 200,
+                    body: fixture("github", "ref_my_branch.json"),
+                    headers: { "content-type" => "application/json" })
+      end
+
+      it { is_expected.to eq("bb218f56b14c9653891f9e74264a383fa43fefbd") }
+    end
   end
 
   describe "#files" do
@@ -54,6 +85,7 @@ RSpec.describe Dependabot::FileFetchers::Base do
     before do
       allow(file_fetcher_instance).to receive(:commit).and_return("sha")
       stub_request(:get, url + "requirements.txt?ref=sha").
+        with(headers: { "Authorization" => "token token" }).
         to_return(status: 200,
                   body: fixture("github", "gemfile_content.json"),
                   headers: { "content-type" => "application/json" })
@@ -70,6 +102,7 @@ RSpec.describe Dependabot::FileFetchers::Base do
       context "when there are non-ASCII characters" do
         before do
           stub_request(:get, url + "requirements.txt?ref=sha").
+            with(headers: { "Authorization" => "token token" }).
             to_return(status: 200,
                       body: fixture("github", "gemfile_content_non_ascii.json"),
                       headers: { "content-type" => "application/json" })
@@ -82,8 +115,8 @@ RSpec.describe Dependabot::FileFetchers::Base do
     context "with a directory specified" do
       let(:file_fetcher_instance) do
         child_class.new(
-          repo: repo,
-          github_client: github_client,
+          source: source,
+          credentials: credentials,
           directory: directory
         )
       end
@@ -125,14 +158,15 @@ RSpec.describe Dependabot::FileFetchers::Base do
     context "with an interesting filename" do
       let(:file_fetcher_instance) do
         child_class.new(
-          repo: repo,
-          github_client: github_client,
+          source: source,
+          credentials: credentials,
           directory: directory
         )
       end
 
       before do
         stub_request(:get, file_url).
+          with(headers: { "Authorization" => "token token" }).
           to_return(status: 200,
                     body: fixture("github", "gemfile_content.json"),
                     headers: { "content-type" => "application/json" })
@@ -182,6 +216,7 @@ RSpec.describe Dependabot::FileFetchers::Base do
     context "when a dependency file can't be found" do
       before do
         stub_request(:get, url + "requirements.txt?ref=sha").
+          with(headers: { "Authorization" => "token token" }).
           to_return(status: 404)
       end
 

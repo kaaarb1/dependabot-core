@@ -7,7 +7,7 @@ require "octokit"
 module Dependabot
   module FileFetchers
     class Base
-      attr_reader :repo, :github_client, :directory
+      attr_reader :source, :credentials, :directory, :target_branch
 
       def self.required_files_in?(_)
         raise NotImplementedError
@@ -17,10 +17,19 @@ module Dependabot
         raise NotImplementedError
       end
 
-      def initialize(repo:, github_client:, directory: "/")
-        @repo = repo
-        @github_client = github_client
+      def initialize(source:, credentials:, directory: "/", target_branch: nil)
+        @source = source
+        @credentials = credentials
         @directory = directory
+        @target_branch = target_branch
+      end
+
+      def repo
+        source.fetch(:repo)
+      end
+
+      def host
+        source.fetch(:host)
       end
 
       def files
@@ -30,8 +39,9 @@ module Dependabot
       def commit
         @commit ||=
           begin
-            default_branch = github_client.repository(repo).default_branch
-            github_client.ref(repo, "heads/#{default_branch}").object.sha
+            branch = target_branch ||
+                     github_client.repository(repo).default_branch
+            github_client.ref(repo, "heads/#{branch}").object.sha
           end
       end
 
@@ -48,6 +58,17 @@ module Dependabot
         )
       rescue Octokit::NotFound
         raise Dependabot::DependencyFileNotFound, path
+      end
+
+      # One day day this class, and all others, will be provider agnostic. For
+      # now it's fine that it only supports GitHub.
+      def github_client
+        access_token =
+          credentials.
+          find { |cred| cred["host"] == "github.com" }&.
+          fetch("password")
+
+        @github_client ||= Octokit::Client.new(access_token: access_token)
       end
     end
   end

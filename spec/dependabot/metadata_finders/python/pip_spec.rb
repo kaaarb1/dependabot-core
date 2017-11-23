@@ -25,9 +25,17 @@ RSpec.describe Dependabot::MetadataFinders::Python::Pip do
     )
   end
   subject(:finder) do
-    described_class.new(dependency: dependency, github_client: github_client)
+    described_class.new(dependency: dependency, credentials: credentials)
   end
-  let(:github_client) { Octokit::Client.new(access_token: "token") }
+  let(:credentials) do
+    [
+      {
+        "host" => "github.com",
+        "username" => "x-access-token",
+        "password" => "token"
+      }
+    ]
+  end
   let(:dependency_name) { "luigi" }
 
   describe "#source_url" do
@@ -109,6 +117,23 @@ RSpec.describe Dependabot::MetadataFinders::Python::Pip do
       end
 
       it { is_expected.to eq("https://github.com/spotify/luigi") }
+    end
+  end
+
+  describe "#homepage_url" do
+    subject(:homepage_url) { finder.homepage_url }
+    let(:pypi_url) { "https://pypi.python.org/pypi/#{dependency_name}/json" }
+
+    before do
+      stub_request(:get, pypi_url).to_return(status: 200, body: pypi_response)
+    end
+
+    context "when there is a homepage link in the pypi response" do
+      let(:pypi_response) { fixture("python", "pypi_response_no_source.json") }
+
+      it "returns the specified homepage" do
+        expect(homepage_url).to eq("http://initd.org/psycopg/")
+      end
     end
   end
 end

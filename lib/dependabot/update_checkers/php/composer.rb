@@ -55,6 +55,15 @@ module Dependabot
 
         private
 
+        def latest_version_resolvable_with_full_unlock?
+          # Full unlock checks aren't implemented for Composer (yet)
+          false
+        end
+
+        def updated_dependencies_after_full_unlock
+          raise NotImplementedError
+        end
+
         def fetch_latest_resolvable_version
           latest_resolvable_version =
             SharedHelpers.in_a_temporary_directory do
@@ -73,6 +82,10 @@ module Dependabot
           else
             Gem::Version.new(latest_resolvable_version)
           end
+        rescue SharedHelpers::HelperSubprocessFailed
+          # TODO: We shouldn't be suppressing these errors but they're caused
+          # by memory issues that we don't currently have a solution to.
+          nil
         end
 
         def composer_file

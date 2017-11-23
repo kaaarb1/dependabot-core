@@ -4,6 +4,7 @@
  *  - directory containing a package.json and a package-lock.json
  *  - dependency name
  *  - new dependency version
+ *  - previous requirements for this dependency
  *
  * Outputs:
  *  - updated package.json and package-lock.json files
@@ -18,7 +19,12 @@ const npm = require("npm");
 const npmlog = require("npmlog");
 const { Installer } = require("npm/lib/install");
 
-async function updateDependencyFiles(directory, depName, desiredVersion) {
+async function updateDependencyFiles(
+  directory,
+  depName,
+  desiredVersion,
+  workspaces
+) {
   const readFile = fileName =>
     fs.readFileSync(path.join(directory, fileName)).toString();
 

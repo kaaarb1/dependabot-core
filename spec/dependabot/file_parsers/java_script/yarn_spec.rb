@@ -22,7 +22,7 @@ RSpec.describe Dependabot::FileParsers::JavaScript::Yarn do
     fixture("javascript", "package_files", "package.json")
   end
   let(:lockfile_body) { fixture("javascript", "yarn_lockfiles", "yarn.lock") }
-  let(:parser) { described_class.new(dependency_files: files) }
+  let(:parser) { described_class.new(dependency_files: files, repo: "org/nm") }
 
   describe "parse" do
     subject(:dependencies) { parser.parse }
@@ -137,6 +137,56 @@ RSpec.describe Dependabot::FileParsers::JavaScript::Yarn do
       it "doesn't include the path-based dependency" do
         expect(dependencies.length).to eq(3)
         expect(dependencies.map(&:name)).to_not include("etag")
+      end
+    end
+
+    context "with workspaces" do
+      let(:package_json_body) do
+        fixture("javascript", "package_files", "workspaces.json")
+      end
+      let(:lockfile_body) do
+        fixture("javascript", "yarn_lockfiles", "workspaces.lock")
+      end
+      let(:files) { [package_json, lockfile, package1, other_package] }
+      let(:package1) do
+        Dependabot::DependencyFile.new(
+          name: "packages/package1/package.json",
+          content: fixture("javascript", "package_files", "package1.json")
+        )
+      end
+      let(:other_package) do
+        Dependabot::DependencyFile.new(
+          name: "other_package/package.json",
+          content: fixture("javascript", "package_files", "other_package.json")
+        )
+      end
+
+      its(:length) { is_expected.to eq(3) }
+
+      describe "the last dependency" do
+        subject { dependencies.last }
+
+        it { is_expected.to be_a(Dependabot::Dependency) }
+        its(:name) { is_expected.to eq("etag") }
+        its(:version) { is_expected.to eq("1.8.1") }
+        its(:requirements) do
+          is_expected.to match_array(
+            [
+              {
+                requirement: "^1.1.0",
+                file: "packages/package1/package.json",
+                groups: ["devDependencies"],
+                source: nil
+              },
+              {
+                requirement: "^1.0.0",
+                file: "other_package/package.json",
+                groups: ["devDependencies"],
+                source: nil
+              }
+            ]
+          )
+        end
       end
     end
   end

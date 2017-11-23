@@ -3,12 +3,11 @@
 require "dependabot/update_checkers/base"
 require "dependabot/git_commit_checker"
 
-require "rubygems_yaml_load_patch"
-
 module Dependabot
   module UpdateCheckers
     module Ruby
       class Bundler < Dependabot::UpdateCheckers::Base
+        require_relative "bundler/force_updater"
         require_relative "bundler/file_preparer"
         require_relative "bundler/requirements_updater"
         require_relative "bundler/version_resolver"
@@ -35,6 +34,18 @@ module Dependabot
         end
 
         private
+
+        def latest_version_resolvable_with_full_unlock?
+          return false unless latest_version
+          force_updater.updated_dependencies
+          true
+        rescue Dependabot::DependencyFileNotResolvable
+          false
+        end
+
+        def updated_dependencies_after_full_unlock
+          force_updater.updated_dependencies
+        end
 
         def git_dependency?
           git_commit_checker.git_dependency?
@@ -193,6 +204,16 @@ module Dependabot
           true
         rescue ArgumentError
           false
+        end
+
+        def force_updater
+          @force_updater ||=
+            ForceUpdater.new(
+              dependency: dependency,
+              dependency_files: dependency_files,
+              credentials: credentials,
+              target_version: latest_version
+            )
         end
 
         def git_commit_checker

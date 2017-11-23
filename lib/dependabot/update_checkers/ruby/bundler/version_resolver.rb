@@ -78,6 +78,7 @@ module Dependabot
                     reject { |s| s.version.prerelease? }
                 end.
                 sort_by(&:version).last
+              return nil if spec.nil?
               { version: spec.version }
             end
           end
@@ -174,6 +175,7 @@ module Dependabot
           end
 
           # rubocop:disable Metrics/CyclomaticComplexity
+          # rubocop:disable Metrics/PerceivedComplexity
           # rubocop:disable Metrics/AbcSize
           # rubocop:disable Metrics/MethodLength
           def handle_bundler_errors(error)
@@ -215,10 +217,21 @@ module Dependabot
               regex = /bundle config (?<repo>.*) username:password/
               source = error.error_message.match(regex)[:repo]
               raise Dependabot::PrivateSourceNotReachable, source
+            when "Bundler::Fetcher::BadAuthenticationError"
+              regex = /Bad username or password for (?<repo>.*)\.$/
+              source = error.error_message.match(regex)[:repo]
+              raise Dependabot::PrivateSourceNotReachable, source
+            when "Bundler::HTTPError"
+              regex = /Could not fetch specs from (?<repo>.*)$/
+              raise unless error.error_message.match?(regex)
+              source = error.error_message.match(regex)[:repo]
+              raise if source.include?("rubygems")
+              raise Dependabot::PrivateSourceNotReachable, source
             else raise
             end
           end
           # rubocop:enable Metrics/CyclomaticComplexity
+          # rubocop:enable Metrics/PerceivedComplexity
           # rubocop:enable Metrics/AbcSize
           # rubocop:enable Metrics/MethodLength
 
@@ -231,7 +244,8 @@ module Dependabot
                   # Piggy-back off some private Bundler methods to configure the
                   # URI with auth details in the same way Bundler does.
                   git_proxy = spec.source.send(:git_proxy)
-                  uri = git_proxy.send(:configured_uri_for, spec.source.uri)
+                  uri = spec.source.uri.gsub("git://", "https://")
+                  uri = git_proxy.send(:configured_uri_for, uri)
                   uri += ".git" unless uri.end_with?(".git")
                   uri += "/info/refs?service=git-upload-pack"
 

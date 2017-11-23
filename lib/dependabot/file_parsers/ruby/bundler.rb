@@ -5,13 +5,11 @@ require "dependabot/file_parsers/base"
 require "dependabot/shared_helpers"
 require "dependabot/errors"
 
-require "rubygems_yaml_load_patch"
-
 module Dependabot
   module FileParsers
     module Ruby
       class Bundler < Dependabot::FileParsers::Base
-        require "dependabot/file_parsers/ruby/bundler/dependency_set"
+        require "dependabot/file_parsers/base/dependency_set"
         require "dependabot/file_parsers/ruby/bundler/file_preparer"
         require "dependabot/file_parsers/ruby/bundler/gemfile_checker"
 

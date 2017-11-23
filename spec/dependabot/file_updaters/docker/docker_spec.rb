@@ -13,7 +13,7 @@ RSpec.describe Dependabot::FileUpdaters::Docker::Docker do
   let(:updater) do
     described_class.new(
       dependency_files: [dockerfile],
-      dependency: dependency,
+      dependencies: [dependency],
       credentials: credentials
     )
   end
@@ -204,6 +204,33 @@ RSpec.describe Dependabot::FileUpdaters::Docker::Docker do
       end
 
       its(:length) { is_expected.to eq(1) }
+
+      context "when the docker registry times out" do
+        before do
+          old_headers = fixture(
+            "docker",
+            "registry_manifest_headers",
+            "ubuntu_12.04.5.json"
+          )
+          stub_request(:head, repo_url + "manifests/12.04.5").
+            to_raise(RestClient::Exceptions::OpenTimeout).then.
+            to_return(status: 200, body: "", headers: JSON.parse(old_headers))
+        end
+
+        its(:length) { is_expected.to eq(1) }
+
+        context "every time" do
+          before do
+            stub_request(:head, repo_url + "manifests/12.04.5").
+              to_raise(RestClient::Exceptions::OpenTimeout)
+          end
+
+          it "raises" do
+            expect { updater.updated_dependency_files }.
+              to raise_error(RestClient::Exceptions::OpenTimeout)
+          end
+        end
+      end
 
       describe "the updated Dockerfile" do
         subject(:updated_dockerfile) do

@@ -18,7 +18,7 @@ RSpec.describe Dependabot::FileParsers::Python::Pip do
   let(:requirements_body) do
     fixture("python", "requirements", "version_specified.txt")
   end
-  let(:parser) { described_class.new(dependency_files: files) }
+  let(:parser) { described_class.new(dependency_files: files, repo: "org/nm") }
 
   describe "parse" do
     subject(:dependencies) { parser.parse }
@@ -131,9 +131,7 @@ RSpec.describe Dependabot::FileParsers::Python::Pip do
         fixture("python", "requirements", "version_not_specified.txt")
       end
 
-      # If no version is specified, Python will always use the latest, and we
-      # don't need to attempt to bump the dependency.
-      its(:length) { is_expected.to eq(1) }
+      its(:length) { is_expected.to eq(2) }
     end
 
     context "with prefix matching specified" do
@@ -141,8 +139,18 @@ RSpec.describe Dependabot::FileParsers::Python::Pip do
         fixture("python", "requirements", "prefix_match.txt")
       end
 
-      # TODO: we should support bumping prefix matches
-      its(:length) { is_expected.to eq(1) }
+      its(:length) { is_expected.to eq(2) }
+
+      describe "the first dependency" do
+        subject(:dependency) { dependencies.first }
+
+        it "has the right details" do
+          expect(dependency).to be_a(Dependabot::Dependency)
+          expect(dependency.name).to eq("psycopg2")
+          expect(dependency.version).to be_nil
+          expect(dependency.requirements.first[:requirement]).to eq("==2.6.*")
+        end
+      end
     end
 
     context "with a version specified as between two constraints" do
@@ -150,9 +158,19 @@ RSpec.describe Dependabot::FileParsers::Python::Pip do
         fixture("python", "requirements", "version_between_bounds.txt")
       end
 
-      # TODO: For now we ignore dependencies with multiple requirements, because
-      # they would cause trouble at the dependency update step.
-      its(:length) { is_expected.to eq(1) }
+      its(:length) { is_expected.to eq(2) }
+
+      describe "the first dependency" do
+        subject(:dependency) { dependencies.first }
+
+        it "has the right details" do
+          expect(dependency).to be_a(Dependabot::Dependency)
+          expect(dependency.name).to eq("psycopg2")
+          expect(dependency.version).to be_nil
+          expect(dependency.requirements.first[:requirement]).
+            to eq("<=3.0.0,==2.6.1")
+        end
+      end
     end
 
     context "with a git dependency" do
@@ -177,7 +195,20 @@ RSpec.describe Dependabot::FileParsers::Python::Pip do
           )
         end
 
-        its(:length) { is_expected.to eq(0) }
+        its(:length) { is_expected.to eq(1) }
+
+        describe "the first dependency" do
+          subject(:dependency) { dependencies.first }
+
+          it "has the right details" do
+            expect(dependency).to be_a(Dependabot::Dependency)
+            expect(dependency.name).to eq("requests")
+            expect(dependency.version).to be_nil
+            expect(dependency.requirements.first[:requirement]).to be_nil
+            expect(dependency.requirements.last[:requirement]).
+              to eq("<2.0.0")
+          end
+        end
       end
 
       context "that are specific" do
@@ -197,8 +228,14 @@ RSpec.describe Dependabot::FileParsers::Python::Pip do
             expect(dependency).to be_a(Dependabot::Dependency)
             expect(dependency.name).to eq("requests")
             expect(dependency.version).to eq("2.0.0")
-            expect(dependency.requirements).to eq(
+            expect(dependency.requirements).to match_array(
               [
+                {
+                  requirement: nil,
+                  file: "requirements.txt",
+                  groups: [],
+                  source: nil
+                },
                 {
                   requirement: "==2.0.0",
                   file: "constraints.txt",
@@ -261,8 +298,8 @@ RSpec.describe Dependabot::FileParsers::Python::Pip do
         )
       end
 
-      # Path based dependencies get ignored
-      its(:length) { is_expected.to eq(1) }
+      # setup.py dependencies get imported
+      its(:length) { is_expected.to eq(15) }
 
       describe "the first dependency" do
         subject(:dependency) { dependencies.first }
@@ -270,12 +307,18 @@ RSpec.describe Dependabot::FileParsers::Python::Pip do
         it "has the right details" do
           expect(dependency).to be_a(Dependabot::Dependency)
           expect(dependency.name).to eq("requests")
-          expect(dependency.version).to eq("2.1.4")
+          expect(dependency.version).to eq("2.1.0")
           expect(dependency.requirements).to eq(
             [
               {
-                requirement: "==2.1.4",
+                requirement: "==2.1.0",
                 file: "requirements.txt",
+                groups: [],
+                source: nil
+              },
+              {
+                requirement: "==2.12.*",
+                file: "setup.py",
                 groups: [],
                 source: nil
               }
@@ -337,6 +380,153 @@ RSpec.describe Dependabot::FileParsers::Python::Pip do
             ]
           )
         end
+      end
+    end
+
+    context "with a setup.py" do
+      let(:files) { [setup_file] }
+      let(:setup_file) do
+        Dependabot::DependencyFile.new(
+          name: "setup.py",
+          content: fixture("python", "setup_files", "setup.py")
+        )
+      end
+
+      its(:length) { is_expected.to eq(15) }
+
+      describe "an install_requires dependencies" do
+        subject(:dependency) { dependencies.find { |d| d.name == "boto3" } }
+
+        it "has the right details" do
+          expect(dependency).to be_a(Dependabot::Dependency)
+          expect(dependency.name).to eq("boto3")
+          expect(dependency.version).to eq("1.3.1")
+          expect(dependency.requirements).to eq(
+            [
+              {
+                requirement: "==1.3.1",
+                file: "setup.py",
+                groups: [],
+                source: nil
+              }
+            ]
+          )
+        end
+      end
+
+      describe "a setup_requires dependencies" do
+        subject(:dependency) { dependencies.find { |d| d.name == "numpy" } }
+
+        it "has the right details" do
+          expect(dependency).to be_a(Dependabot::Dependency)
+          expect(dependency.name).to eq("numpy")
+          expect(dependency.version).to eq("1.11.0")
+          expect(dependency.requirements).to eq(
+            [
+              {
+                requirement: "==1.11.0",
+                file: "setup.py",
+                groups: [],
+                source: nil
+              }
+            ]
+          )
+        end
+      end
+
+      describe "a tests_require dependencies" do
+        subject(:dependency) { dependencies.find { |d| d.name == "responses" } }
+
+        it "has the right details" do
+          expect(dependency).to be_a(Dependabot::Dependency)
+          expect(dependency.name).to eq("responses")
+          expect(dependency.version).to eq("0.5.1")
+          expect(dependency.requirements).to eq(
+            [
+              {
+                requirement: "==0.5.1",
+                file: "setup.py",
+                groups: [],
+                source: nil
+              }
+            ]
+          )
+        end
+      end
+
+      describe "an extras_require dependencies" do
+        subject(:dependency) { dependencies.find { |d| d.name == "flask" } }
+
+        it "has the right details" do
+          expect(dependency).to be_a(Dependabot::Dependency)
+          expect(dependency.name).to eq("flask")
+          expect(dependency.version).to eq("0.12.2")
+          expect(dependency.requirements).to eq(
+            [
+              {
+                requirement: "==0.12.2",
+                file: "setup.py",
+                groups: [],
+                source: nil
+              }
+            ]
+          )
+        end
+      end
+
+      context "without a `tests_require` key" do
+        let(:setup_file) do
+          Dependabot::DependencyFile.new(
+            name: "setup.py",
+            content: fixture("python", "setup_files", "no_tests_require.py")
+          )
+        end
+
+        its(:length) { is_expected.to eq(12) }
+      end
+
+      context "with a `print` statement" do
+        let(:setup_file) do
+          Dependabot::DependencyFile.new(
+            name: "setup.py",
+            content: fixture("python", "setup_files", "with_print.py")
+          )
+        end
+
+        its(:length) { is_expected.to eq(14) }
+      end
+
+      context "with an `open` statement" do
+        let(:setup_file) do
+          Dependabot::DependencyFile.new(
+            name: "setup.py",
+            content: fixture("python", "setup_files", "with_open.py")
+          )
+        end
+
+        its(:length) { is_expected.to eq(14) }
+      end
+
+      context "with the setup.py from requests" do
+        let(:setup_file) do
+          Dependabot::DependencyFile.new(
+            name: "setup.py",
+            content: fixture("python", "setup_files", "requests_setup.py")
+          )
+        end
+
+        its(:length) { is_expected.to eq(13) }
+      end
+
+      context "with an import of a config file" do
+        let(:setup_file) do
+          Dependabot::DependencyFile.new(
+            name: "setup.py",
+            content: fixture("python", "setup_files", "imports_version.py")
+          )
+        end
+
+        its(:length) { is_expected.to eq(14) }
       end
     end
   end

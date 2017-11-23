@@ -10,7 +10,7 @@ module Dependabot
       SOURCE_REGEX = %r{
         (?<host>github(?=\.com)|bitbucket(?=\.org)|gitlab(?=\.com))
         (?:\.com|\.org)/
-        (?<repo>[^/\s]+/(?:(?!\.git)[^/\s])+)[\./]?
+        (?<repo>[^/\s]+/(?:(?!\.git)[^/\s#])+)[\./]?
       }x
 
       class Source
@@ -31,22 +31,26 @@ module Dependabot
         end
       end
 
-      attr_reader :dependency, :github_client
+      attr_reader :dependency, :credentials
 
-      def initialize(dependency:, github_client:)
+      def initialize(dependency:, credentials:)
         @dependency = dependency
-        @github_client = github_client
+        @credentials = credentials
       end
 
       def source_url
         source&.url
       end
 
+      def homepage_url
+        source_url
+      end
+
       def changelog_url
         @changelog_finder ||= ChangelogFinder.new(
           dependency: dependency,
           source: source,
-          github_client: github_client
+          credentials: credentials
         )
         @changelog_finder.changelog_url
       end
@@ -55,7 +59,7 @@ module Dependabot
         @release_finder ||= ReleaseFinder.new(
           dependency: dependency,
           source: source,
-          github_client: github_client
+          credentials: credentials
         )
         @release_finder.release_url
       end
@@ -64,7 +68,7 @@ module Dependabot
         @commits_url_finder ||= CommitsUrlFinder.new(
           dependency: dependency,
           source: source,
-          github_client: github_client
+          credentials: credentials
         )
         @commits_url_finder.commits_url
       end
